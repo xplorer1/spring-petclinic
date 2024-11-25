@@ -9,7 +9,7 @@ pipeline {
         stage('Checkout') {
             steps {
                 //clone the repository
-                git url: 'https://github.com/xplorer1/spring-petclinic.git'
+                git branch: 'main', url: 'https://github.com/xplorer1/spring-petclinic.git'
             }
         }
 
