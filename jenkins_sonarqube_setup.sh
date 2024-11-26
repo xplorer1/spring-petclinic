@@ -87,6 +87,7 @@ sudo systemctl enable sonarqube
 # Wait for SonarQube to fully start before proceeding
 echo "Waiting for SonarQube to fully start and be ready for API calls..."
 while true; do
+    echo "##inside while loop: Waiting for SonarQube to fully start"
     # Attempt to generate a token as a readiness check
     response=$(curl -s -u admin:admin -X POST "http://$AWS_SERVER_IP:$SONARQUBE_PORT/api/user_tokens/generate" -d "name=jenkins_integration")
     echo "Response from SonarQube API: $response"
@@ -156,12 +157,6 @@ done
 
 # Restart Jenkins after plugin installation
 sudo systemctl restart jenkins
-
-# Configure SonarQube server connection in Jenkins
-sudo java -jar $JENKINS_CLI_JAR -s $JENKINS_URL -auth admin:$ADMIN_PASSWORD \
-  set-sonarqube-server "SonarQube" \
-  -url http://$AWS_SERVER_IP:$SONARQUBE_PORT \
-  -credentials sonarqube-token
 
 echo "Setup Complete!"
 echo "Jenkins is running at http://$AWS_SERVER_IP:$JENKINS_PORT"
