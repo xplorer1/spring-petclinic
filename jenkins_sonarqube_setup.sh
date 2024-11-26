@@ -9,6 +9,7 @@ SONARQUBE_PORT=9000
 SONARQUBE_VERSION=9.9.1.69595
 JAVA_VERSION=openjdk-17-jdk
 AWS_SERVER_IP=3.208.9.21
+SONARQUBE_TOKEN=""
 
 # Update and install required packages
 echo "Updating system and installing dependencies..."
@@ -84,27 +85,40 @@ sudo systemctl start sonarqube
 sudo systemctl enable sonarqube
 
 # Wait for SonarQube to fully start before proceeding
-echo "Waiting for SonarQube to fully start..."
-while ! curl -s http://$AWS_SERVER_IP:$SONARQUBE_PORT > /dev/null; do
-  sleep 10
+echo "Waiting for SonarQube to fully start and be ready for API calls..."
+while true; do
+    # Attempt to generate a token as a readiness check
+    response=$(curl -s -u admin:admin -X POST "http://$AWS_SERVER_IP:$SONARQUBE_PORT/api/user_tokens/generate" -d "name=jenkins_integration")
+    echo "Response from SonarQube API: $response"
+
+    # Check if the response contains a token
+    if echo "$response" | grep -q '"token":"'; then
+        # Extract the token
+        SONARQUBE_TOKEN=$(echo "$response" | grep -o '"token":"[^"]*' | grep -o '[^"]*$')
+        echo "SonarQube token generated: $SONARQUBE_TOKEN"
+        echo "SonarQube is up and running at http://$AWS_SERVER_IP:$SONARQUBE_PORT"
+        break
+    else
+        echo "SonarQube not ready yet, retrying in 10 seconds..."
+        sleep 10
+    fi
 done
-echo "SonarQube is up and running at http://$AWS_SERVER_IP:$SONARQUBE_PORT"
 
-api_url="http://$AWS_SERVER_IP:$SONARQUBE_PORT/api/user_tokens/generate"
-echo "Making request to SonarQube API: $api_url"
-response=$(curl -s -u admin:admin -X POST "$api_url" -d "name=jenkins_integration")
+JENKINS_CLI_JAR=/var/cache/jenkins/war/WEB-INF/jenkins-cli.jar
+JENKINS_URL=http://$AWS_SERVER_IP:$JENKINS_PORT
 
-# Debug: Print out the response
-echo "Response from SonarQube API: $response"
+# Wait for Jenkins to start and initialize
+echo "Waiting for Jenkins to fully start..."
+while ! curl -s $JENKINS_URL > /dev/null; do sleep 10; done
 
-# Extract token from response
-SONARQUBE_TOKEN=$(echo "$response" | grep -o '"token":"[^"]*' | grep -o '[^"]*$')
-
-echo "SonarQube token created: $SONARQUBE_TOKEN"
+# Generate Jenkins CLI
+if [ ! -f "$JENKINS_CLI_JAR" ]; then
+  echo "Downloading Jenkins CLI..."
+  sudo wget -O $JENKINS_CLI_JAR $JENKINS_URL/jnlpJars/jenkins-cli.jar
+fi
 
 # Add SONARQUBE_TOKEN to Jenkins global environment variables
-sudo java -jar $JENKINS_CLI_JAR -s $JENKINS_URL -auth admin:$ADMIN_PASSWORD \
-  groovy = << EOF
+sudo java -jar "$JENKINS_CLI_JAR" -s "$JENKINS_URL" -auth "admin:$ADMIN_PASSWORD" groovy = << EOF
 import jenkins.model.Jenkins
 import hudson.slaves.EnvironmentVariablesNodeProperty
 import hudson.slaves.NodeProperty
@@ -129,21 +143,6 @@ println "SONARQUBE_TOKEN added to Jenkins global environment variables"
 EOF
 
 echo "SONARQUBE_TOKEN added to Jenkins global environment variables"
-
-# Install Jenkins Plugins
-echo "Installing Jenkins plugins..."
-JENKINS_CLI_JAR=/var/cache/jenkins/war/WEB-INF/jenkins-cli.jar
-JENKINS_URL=http://$AWS_SERVER_IP:$JENKINS_PORT
-
-# Wait for Jenkins to start and initialize
-echo "Waiting for Jenkins to fully start..."
-while ! curl -s $JENKINS_URL > /dev/null; do sleep 10; done
-
-# Generate Jenkins CLI
-if [ ! -f "$JENKINS_CLI_JAR" ]; then
-  echo "Downloading Jenkins CLI..."
-  sudo wget -O $JENKINS_CLI_JAR $JENKINS_URL/jnlpJars/jenkins-cli.jar
-fi
 
 # Get the initial admin password
 ADMIN_PASSWORD=$(sudo cat /var/lib/jenkins/secrets/initialAdminPassword)
