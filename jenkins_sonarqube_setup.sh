@@ -8,8 +8,9 @@ JENKINS_PORT=8080
 SONARQUBE_PORT=9000
 SONARQUBE_VERSION=9.9.1.69595
 JAVA_VERSION=openjdk-17-jdk
-AWS_SERVER_IP=3.208.9.21
+AWS_SERVER_IP=54.173.82.114
 SONARQUBE_TOKEN=""
+SONARQUBE_ENV=SonarQube_Scanner
 
 # Update and install required packages
 echo "Updating system and installing dependencies..."
@@ -84,25 +85,40 @@ sudo systemctl daemon-reload
 sudo systemctl start sonarqube
 sudo systemctl enable sonarqube
 
+# Wait for SonarQube to start and initialize .0
+echo "Waiting for SonarQube .0 to fully start..."
+while ! curl -s http://$AWS_SERVER_IP:$SONARQUBE_PORT > /dev/null; do sleep 10; done
+
 # Wait for SonarQube to fully start before proceeding
 echo "Waiting for SonarQube to fully start and be ready for API calls..."
 while true; do
-    echo "##inside while loop: Waiting for SonarQube to fully start"
-    # Attempt to generate a token as a readiness check
-    response=$(curl -s -u admin:admin -X POST "http://$AWS_SERVER_IP:$SONARQUBE_PORT/api/user_tokens/generate" -d "name=jenkins_integration")
-    echo "Response from SonarQube API: $response"
+    # Check SonarQube health first
+    health_check=$(curl -s -u admin:admin "http://$AWS_SERVER_IP:$SONARQUBE_PORT/api/system/health")
+    echo "SonarQube Health Check Response: $health_check"
+    
+    # Check if SonarQube is up (look for "status":"OK" in the health check response)
+    if echo "$health_check" | grep -q '"health":"GREEN"'; then
+        echo "Sonar is up and ready."
+        # Attempt to generate a token as a readiness check
+        response=$(curl -s -u admin:admin -X POST "http://$AWS_SERVER_IP:$SONARQUBE_PORT/api/user_tokens/generate" -d "name=jenkins_integration")
+        echo "Response from SonarQube API: $response"
 
-    # Check if the response contains a token
-    if echo "$response" | grep -q '"token":"'; then
-        # Extract the token
-        SONARQUBE_TOKEN=$(echo "$response" | grep -o '"token":"[^"]*' | grep -o '[^"]*$')
-        echo "SonarQube token generated: $SONARQUBE_TOKEN"
-        echo "SonarQube is up and running at http://$AWS_SERVER_IP:$SONARQUBE_PORT"
-        break
+        # Check if the response contains a token
+        if echo "$response" | grep -q '"token":"'; then
+            # Extract the token
+            SONARQUBE_TOKEN=$(echo "$response" | grep -o '"token":"[^"]*' | grep -o '[^"]*$')
+            echo "SonarQube token generated: $SONARQUBE_TOKEN"
+            echo "SonarQube is up and running at http://$AWS_SERVER_IP:$SONARQUBE_PORT"
+            break
+        else
+            echo "SonarQube not ready yet, retrying in 10 seconds..."
+        fi
     else
-        echo "SonarQube not ready yet, retrying in 10 seconds..."
-        sleep 10
+        echo "SonarQube health check failed, retrying in 10 seconds..."
     fi
+    
+    # Wait before retrying
+    sleep 60
 done
 
 JENKINS_CLI_JAR=/var/cache/jenkins/war/WEB-INF/jenkins-cli.jar
@@ -139,6 +155,7 @@ if (envVarsNodePropertyList == null || envVarsNodePropertyList.size() == 0) {
 }
 
 envVars.put("SONARQUBE_TOKEN", "$SONARQUBE_TOKEN")
+envVars.put("SONARQUBE_ENV", "$SONARQUBE_ENV")
 jenkins.save()
 println "SONARQUBE_TOKEN added to Jenkins global environment variables"
 EOF

@@ -2,9 +2,9 @@ pipeline {
     agent any
 
     environment {
-        SONARQUBE_ENV = 'SonarQube'
+        SONARQUBE_ENV = 'SonarQube_Scanner'
         SONARQUBE_KEY = 'spring-petclinic'
-        AWS_SERVER_IP='3.208.9.21'
+        AWS_SERVER_IP='54.173.82.114'
         APP_PORT='8081'
     }
 
