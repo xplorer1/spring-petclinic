@@ -8,15 +8,7 @@ JENKINS_PORT=8080
 SONARQUBE_PORT=9000
 SONARQUBE_VERSION=9.9.1.69595
 JAVA_VERSION=openjdk-17-jdk
-AWS_SERVER_IP=54.163.217.206
-ADMIN_PASSWORD=admin
-
-create_sonarqube_token() {
-    local token_name=$1
-    local api_url="http://$AWS_SERVER_IP:$SONARQUBE_PORT/api/user_tokens/generate"
-    local response=$(curl -s -u admin:admin -X POST "$api_url" -d "name=$token_name")
-    echo $response | grep -o '"token":"[^"]*' | grep -o '[^"]*$'
-}
+AWS_SERVER_IP=3.208.9.21
 
 # Update and install required packages
 echo "Updating system and installing dependencies..."
@@ -43,6 +35,10 @@ sudo apt install -y jenkins
 sudo systemctl start jenkins
 sudo systemctl enable jenkins
 
+# Get the initial admin password
+ADMIN_PASSWORD=$(sudo cat /var/lib/jenkins/secrets/initialAdminPassword)
+echo "Admin password for Jenkins: $ADMIN_PASSWORD"
+
 # Install SonarQube
 echo "Installing SonarQube..."
 wget https://binaries.sonarsource.com/Distribution/sonarqube/sonarqube-$SONARQUBE_VERSION.zip
@@ -50,7 +46,15 @@ sudo unzip sonarqube-$SONARQUBE_VERSION.zip -d /opt/
 sudo mv /opt/sonarqube-$SONARQUBE_VERSION /opt/sonarqube
 
 # Create SonarQube user
-sudo useradd -m -d /opt/sonarqube -r -s /bin/bash sonarqube
+# Check if SonarQube user exists before creating it
+if ! id -u sonarqube &>/dev/null; then
+    # Create SonarQube user only if it doesn't already exist
+    sudo useradd -m -d /opt/sonarqube -r -s /bin/bash sonarqube
+    echo "SonarQube user created."
+else
+    echo "SonarQube user already exists."
+fi
+
 sudo chown -R sonarqube:sonarqube /opt/sonarqube
 
 # Set up SonarQube as a systemd service
@@ -79,9 +83,23 @@ sudo systemctl daemon-reload
 sudo systemctl start sonarqube
 sudo systemctl enable sonarqube
 
-# Create SonarQube token
-echo "Creating SonarQube token..."
-SONARQUBE_TOKEN=$(create_sonarqube_token "jenkins_integration")
+# Wait for SonarQube to fully start before proceeding
+echo "Waiting for SonarQube to fully start..."
+while ! curl -s http://$AWS_SERVER_IP:$SONARQUBE_PORT > /dev/null; do
+  sleep 10
+done
+echo "SonarQube is up and running at http://$AWS_SERVER_IP:$SONARQUBE_PORT"
+
+api_url="http://$AWS_SERVER_IP:$SONARQUBE_PORT/api/user_tokens/generate"
+echo "Making request to SonarQube API: $api_url"
+response=$(curl -s -u admin:admin -X POST "$api_url" -d "name=jenkins_integration")
+
+# Debug: Print out the response
+echo "Response from SonarQube API: $response"
+
+# Extract token from response
+SONARQUBE_TOKEN=$(echo "$response" | grep -o '"token":"[^"]*' | grep -o '[^"]*$')
+
 echo "SonarQube token created: $SONARQUBE_TOKEN"
 
 # Add SONARQUBE_TOKEN to Jenkins global environment variables
@@ -111,13 +129,6 @@ println "SONARQUBE_TOKEN added to Jenkins global environment variables"
 EOF
 
 echo "SONARQUBE_TOKEN added to Jenkins global environment variables"
-
-# Wait for SonarQube to fully start before proceeding
-echo "Waiting for SonarQube to fully start..."
-while ! curl -s http://$AWS_SERVER_IP:$SONARQUBE_PORT > /dev/null; do
-  sleep 10
-done
-echo "SonarQube is up and running at http://$AWS_SERVER_IP:$SONARQUBE_PORT"
 
 # Install Jenkins Plugins
 echo "Installing Jenkins plugins..."
