@@ -3,7 +3,8 @@ pipeline {
 
     environment {
         SONARQUBE_ENV = 'SonarQube'
-        SONARQUBE_TOKEN = '' 
+        SONARQUBE_TOKEN = 'sqp_dfb9598a92352842870e1990717844c9a8af5beb' 
+        SONARQUBE_KEY = 'spring-petclinic'
         AWS_SERVER_IP='18.207.117.242'
         APP_PORT='8081'
     }
@@ -21,7 +22,7 @@ pipeline {
                 //SonarQube analysis
                 withSonarQubeEnv(SONARQUBE_ENV) {
                     sh './mvnw sonar:sonar \
-                        -Dsonar.projectKey=spring-petclinic \
+                        -Dsonar.projectKey=$SONARQUBE_KEY \
                         -Dsonar.host.url=http://$AWS_SERVER_IP:9000 \
                         -Dsonar.login=$SONARQUBE_TOKEN'
                 }
