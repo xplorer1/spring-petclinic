@@ -8,7 +8,15 @@ JENKINS_PORT=8080
 SONARQUBE_PORT=9000
 SONARQUBE_VERSION=9.9.1.69595
 JAVA_VERSION=openjdk-17-jdk
-AWS_SERVER_IP=18.207.117.242
+AWS_SERVER_IP=54.163.217.206
+ADMIN_PASSWORD=admin
+
+create_sonarqube_token() {
+    local token_name=$1
+    local api_url="http://$AWS_SERVER_IP:$SONARQUBE_PORT/api/user_tokens/generate"
+    local response=$(curl -s -u admin:admin -X POST "$api_url" -d "name=$token_name")
+    echo $response | grep -o '"token":"[^"]*' | grep -o '[^"]*$'
+}
 
 # Update and install required packages
 echo "Updating system and installing dependencies..."
@@ -71,6 +79,46 @@ sudo systemctl daemon-reload
 sudo systemctl start sonarqube
 sudo systemctl enable sonarqube
 
+# Create SonarQube token
+echo "Creating SonarQube token..."
+SONARQUBE_TOKEN=$(create_sonarqube_token "jenkins_integration")
+echo "SonarQube token created: $SONARQUBE_TOKEN"
+
+# Add SONARQUBE_TOKEN to Jenkins global environment variables
+sudo java -jar $JENKINS_CLI_JAR -s $JENKINS_URL -auth admin:$ADMIN_PASSWORD \
+  groovy = << EOF
+import jenkins.model.Jenkins
+import hudson.slaves.EnvironmentVariablesNodeProperty
+import hudson.slaves.NodeProperty
+
+def jenkins = Jenkins.getInstance()
+def globalNodeProperties = jenkins.getGlobalNodeProperties()
+def envVarsNodePropertyList = globalNodeProperties.getAll(EnvironmentVariablesNodeProperty.class)
+def newEnvVarsNodeProperty = null
+def envVars = null
+
+if (envVarsNodePropertyList == null || envVarsNodePropertyList.size() == 0) {
+    newEnvVarsNodeProperty = new EnvironmentVariablesNodeProperty()
+    globalNodeProperties.add(newEnvVarsNodeProperty)
+    envVars = newEnvVarsNodeProperty.getEnvVars()
+} else {
+    envVars = envVarsNodePropertyList.get(0).getEnvVars()
+}
+
+envVars.put("SONARQUBE_TOKEN", "$SONARQUBE_TOKEN")
+jenkins.save()
+println "SONARQUBE_TOKEN added to Jenkins global environment variables"
+EOF
+
+echo "SONARQUBE_TOKEN added to Jenkins global environment variables"
+
+# Wait for SonarQube to fully start before proceeding
+echo "Waiting for SonarQube to fully start..."
+while ! curl -s http://$AWS_SERVER_IP:$SONARQUBE_PORT > /dev/null; do
+  sleep 10
+done
+echo "SonarQube is up and running at http://$AWS_SERVER_IP:$SONARQUBE_PORT"
+
 # Install Jenkins Plugins
 echo "Installing Jenkins plugins..."
 JENKINS_CLI_JAR=/var/cache/jenkins/war/WEB-INF/jenkins-cli.jar
@@ -98,6 +146,12 @@ done
 
 # Restart Jenkins after plugin installation
 sudo systemctl restart jenkins
+
+# Configure SonarQube server connection in Jenkins
+sudo java -jar $JENKINS_CLI_JAR -s $JENKINS_URL -auth admin:$ADMIN_PASSWORD \
+  set-sonarqube-server "SonarQube" \
+  -url http://$AWS_SERVER_IP:$SONARQUBE_PORT \
+  -credentials sonarqube-token
 
 echo "Setup Complete!"
 echo "Jenkins is running at http://$AWS_SERVER_IP:$JENKINS_PORT"
