@@ -3,6 +3,9 @@ pipeline {
 
     environment {
         SONARQUBE_ENV = 'SonarQube'
+        SONARQUBE_TOKEN = '' 
+        AWS_SERVER_IP='18.207.117.242'
+        APP_PORT='8081'
     }
 
     stages {
@@ -13,18 +16,31 @@ pipeline {
             }
         }
 
+        stage('SonarQube Analysis') {
+            steps {
+                //SonarQube analysis
+                withSonarQubeEnv(SONARQUBE_ENV) {
+                    sh './mvnw sonar:sonar \
+                        -Dsonar.projectKey=spring-petclinic \
+                        -Dsonar.host.url=http://$AWS_SERVER_IP:9000 \
+                        -Dsonar.login=$SONARQUBE_TOKEN'
+                }
+            }
+        }
+
         stage('Build Application') {
             steps {
                 //clean and build the application using Maven
                 sh 'mvn clean package'
             }
         }
-    }
 
-    post {
-        always {
-            //clean up the workspace
-            cleanWs()
+        stage('Run Application') {
+            steps {
+                echo "Starting Petclinic application..."
+                sh 'java -jar target/spring-petclinic-3.3.0-SNAPSHOT.jar --server.port=$APP_PORT'
+                echo "Running application at http://$AWS_SERVER_IP:$APP_PORT"
+            }
         }
     }
 }
