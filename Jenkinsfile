@@ -17,6 +17,12 @@ pipeline {
             }
         }
 
+        stage('Compile') {
+            steps {
+                sh 'mvn compile'
+            }
+        }
+
         stage('SonarQube Analysis') {
             steps {
                 withSonarQubeEnv(installationName: SONARQUBE_ENV) {
@@ -25,6 +31,7 @@ pipeline {
                         -Dsonar.projectKey=$SONARQUBE_KEY \
                         -Dsonar.host.url=http://$AWS_SERVER_IP:9000 \
                         -Dsonar.login=$SONARQUBE_TOKEN
+                        -Dsonar.java.binaries=target/classes
                     '''
                 }
             }
