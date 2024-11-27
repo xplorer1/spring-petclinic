@@ -83,8 +83,12 @@ sudo systemctl daemon-reload
 sudo systemctl start sonarqube
 sudo systemctl enable sonarqube
 
-# Wait for SonarQube to fully start before proceeding
-echo "Waiting for SonarQube to fully start and be ready for API calls..."
+#wait for SonarQube to start and initialize
+echo "Waiting for SonarQube to fully start..."
+while ! curl -s http://$AWS_SERVER_IP:$SONARQUBE_PORT > /dev/null; do sleep 10; done
+
+#check for sonarqube system health and availability of APIs.
+echo "Waiting for SonarQube to be ready for API calls..."
 while true; do
     # Check SonarQube health first
     health_check=$(curl -s -u admin:admin "http://$AWS_SERVER_IP:$SONARQUBE_PORT/api/system/health")
@@ -112,7 +116,7 @@ while true; do
     fi
     
     # Wait before retrying
-    sleep 60
+    sleep 10
 done
 
 JENKINS_CLI_JAR=/var/cache/jenkins/war/WEB-INF/jenkins-cli.jar
@@ -128,7 +132,7 @@ if [ ! -f "$JENKINS_CLI_JAR" ]; then
   sudo wget -O $JENKINS_CLI_JAR $JENKINS_URL/jnlpJars/jenkins-cli.jar
 fi
 
-# Add SONARQUBE_TOKEN to Jenkins global environment variables
+#add to Jenkins global environment variables
 sudo java -jar "$JENKINS_CLI_JAR" -s "$JENKINS_URL" -auth "admin:$ADMIN_PASSWORD" groovy = << EOF
 import jenkins.model.Jenkins
 import hudson.slaves.EnvironmentVariablesNodeProperty
@@ -155,8 +159,45 @@ envVars.put("APP_PORT", "8081")
 envVars.put("SONARQUBE_KEY", "spring-petclinic")
 
 jenkins.save()
-println "SONARQUBE_TOKEN added to Jenkins global environment variables"
+println "Added to Jenkins global environment variables"
 EOF
+
+sudo java -jar "$JENKINS_CLI_JAR" -s "$JENKINS_URL" -auth "admin:$ADMIN_PASSWORD" groovy = << EOF
+import com.cloudbees.plugins.credentials.*
+import com.cloudbees.plugins.credentials.domains.*
+import com.cloudbees.plugins.credentials.impl.*
+import hudson.util.Secret
+import jenkins.model.Jenkins
+
+// Define the credentials
+def credentialsId = "sonarqube-token"
+def description = "SonarQube Authentication Token"
+def secretText = "$SONARQUBE_TOKEN"
+
+// Access Jenkins credentials store
+def jenkins = Jenkins.getInstance()
+def domain = Domain.global()
+def store = jenkins.getExtensionList('com.cloudbees.plugins.credentials.SystemCredentialsProvider')[0].getStore()
+
+// Check if the credential already exists
+def existingCredentials = store.getCredentials(domain).find { it.id == credentialsId }
+if (existingCredentials) {
+    println "Credential with ID '${credentialsId}' already exists. Updating it..."
+    store.removeCredentials(domain, existingCredentials)
+}
+
+// Create and add the new credential
+def credentials = new StringCredentialsImpl(
+    CredentialsScope.GLOBAL,
+    credentialsId,
+    description,
+    Secret.fromString(secretText)
+)
+store.addCredentials(domain, credentials)
+
+println "Credential '${credentialsId}' added/updated successfully!"
+EOF
+
 
 #get the initial admin password.
 ADMIN_PASSWORD=$(sudo cat /var/lib/jenkins/secrets/initialAdminPassword)
