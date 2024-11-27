@@ -22,9 +22,6 @@ sudo apt install -y maven
 echo "Maven version:"
 mvn -version
 
-#install jq for parsing json.
-sudo apt install -y jq
-
 #install Jenkins.
 echo "Installing Jenkins..."
 sudo wget -O /usr/share/keyrings/jenkins-keyring.asc \
@@ -93,18 +90,16 @@ while ! curl -s http://$AWS_SERVER_IP:$SONARQUBE_PORT > /dev/null; do sleep 10; 
 #check for sonarqube system health and availability of APIs.
 echo "Waiting for SonarQube to be ready for API calls..."
 while true; do
-    # Check SonarQube health first
+    #check SonarQube health first
     health_check=$(curl -s -u admin:admin "http://$AWS_SERVER_IP:$SONARQUBE_PORT/api/system/health")
-    echo "SonarQube Health Check Response: $health_check"
     
-    # Check if SonarQube is up (look for "status":"OK" in the health check response)
+    #check if SonarQube is up (look for "status":"OK" in the health check response)
     if echo "$health_check" | grep -q '"health":"GREEN"'; then
-        echo "Sonar is up and ready."
-        # Attempt to generate a token as a readiness check
+        echo "SonarQube is up and ready."
+        #attempt to generate a token as a readiness check
         response=$(curl -s -u admin:admin -X POST "http://$AWS_SERVER_IP:$SONARQUBE_PORT/api/user_tokens/generate" -d "name=jenkins_integration")
-        echo "Response from SonarQube API: $response"
 
-        # Check if the response contains a token
+        #check if the response contains a token
         if echo "$response" | grep -q '"token":"'; then
             # Extract the token
             SONARQUBE_TOKEN=$(echo "$response" | grep -o '"token":"[^"]*' | grep -o '[^"]*$')
@@ -118,7 +113,7 @@ while true; do
         echo "SonarQube health check failed, retrying in 10 seconds..."
     fi
     
-    # Wait before retrying
+    #wait before retrying
     sleep 10
 done
 
@@ -169,7 +164,7 @@ EOF
 CRUMB=$(curl -s -u admin:$ADMIN_PASSWORD "$JENKINS_URL/crumbIssuer/api/json" | jq -r '.crumb')
 echo "CRUMB: $CRUMB"
 
-# Verify crumb value
+#verify crumb value
 if [ -z "$CRUMB" ]; then
     echo "Error: Crumb is empty or invalid."
     exit 1
