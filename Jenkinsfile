@@ -4,7 +4,7 @@ pipeline {
     environment {
         SONARQUBE_ENV = 'Sonarqube Server'
         SONARQUBE_KEY = 'spring-petclinic'
-        AWS_SERVER_IP='54.173.82.114'
+        AWS_SERVER_IP='34.207.244.129'
         APP_PORT='8081'
         SONARQUBE_TOKEN='sqp_2eed0344a6ad635b3740e8f08f216f062c0f216b'
     }

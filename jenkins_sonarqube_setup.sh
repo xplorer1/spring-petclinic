@@ -8,7 +8,7 @@ JENKINS_PORT=8080
 SONARQUBE_PORT=9000
 SONARQUBE_VERSION=9.9.1.69595
 JAVA_VERSION=openjdk-17-jdk
-AWS_SERVER_IP=54.173.82.114
+AWS_SERVER_IP=34.207.244.129
 
 #update and install required packages.
 echo "Updating system and installing dependencies..."
