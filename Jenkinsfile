@@ -20,7 +20,7 @@ pipeline {
         stage('Compile and build application') {
             steps {
                 //clean and build the application using Maven
-                sh 'mvn clean package'
+                sh 'mvn clean package -X'
             }
         }
 
@@ -31,8 +31,9 @@ pipeline {
                         ./mvnw sonar:sonar \
                         -Dsonar.projectKey=$SONARQUBE_KEY \
                         -Dsonar.host.url=http://$AWS_SERVER_IP:9000 \
-                        -Dsonar.login=$SONARQUBE_TOKEN
-                        -Dsonar.java.binaries=target/classes
+                        -Dsonar.login=$SONARQUBE_TOKEN \
+                        -Dsonar.java.binaries=target/classes \
+                        -X
                     '''
                 }
             }
