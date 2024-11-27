@@ -22,6 +22,9 @@ sudo apt install -y maven
 echo "Maven version:"
 mvn -version
 
+#install jq for parsing json.
+sudo apt install -y jq
+
 #install Jenkins.
 echo "Installing Jenkins..."
 sudo wget -O /usr/share/keyrings/jenkins-keyring.asc \
@@ -162,42 +165,15 @@ jenkins.save()
 println "Added to Jenkins global environment variables"
 EOF
 
-sudo java -jar "$JENKINS_CLI_JAR" -s "$JENKINS_URL" -auth "admin:$ADMIN_PASSWORD" groovy = << EOF
-import com.cloudbees.plugins.credentials.*
-import com.cloudbees.plugins.credentials.domains.*
-import com.cloudbees.plugins.credentials.impl.*
-import hudson.util.Secret
-import jenkins.model.Jenkins
 
-// Define the credentials
-def credentialsId = "sonarqube-token"
-def description = "SonarQube Authentication Token"
-def secretText = "$SONARQUBE_TOKEN"
+CRUMB=$(curl -s -u admin:$ADMIN_PASSWORD "$JENKINS_URL/crumbIssuer/api/json" | jq -r '.crumb')
+echo "CRUMB: $CRUMB"
 
-// Access Jenkins credentials store
-def jenkins = Jenkins.getInstance()
-def domain = Domain.global()
-def store = jenkins.getExtensionList('com.cloudbees.plugins.credentials.SystemCredentialsProvider')[0].getStore()
-
-// Check if the credential already exists
-def existingCredentials = store.getCredentials(domain).find { it.id == credentialsId }
-if (existingCredentials) {
-    println "Credential with ID '${credentialsId}' already exists. Updating it..."
-    store.removeCredentials(domain, existingCredentials)
-}
-
-// Create and add the new credential
-def credentials = new StringCredentialsImpl(
-    CredentialsScope.GLOBAL,
-    credentialsId,
-    description,
-    Secret.fromString(secretText)
-)
-store.addCredentials(domain, credentials)
-
-println "Credential '${credentialsId}' added/updated successfully!"
-EOF
-
+# Verify crumb value
+if [ -z "$CRUMB" ]; then
+    echo "Error: Crumb is empty or invalid."
+    exit 1
+fi
 
 #get the initial admin password.
 ADMIN_PASSWORD=$(sudo cat /var/lib/jenkins/secrets/initialAdminPassword)
@@ -221,3 +197,4 @@ echo "Setup Complete!"
 echo "Jenkins is running at http://$AWS_SERVER_IP:$JENKINS_PORT"
 echo "SonarQube is running at http://$AWS_SERVER_IP:$SONARQUBE_PORT"
 echo "Use the following admin password to log into Jenkins: $ADMIN_PASSWORD"
+echo "Use the following token as secret text when adding Sonarqube server on jenkins: $SONARQUBE_TOKEN"
