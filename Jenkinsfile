@@ -2,10 +2,11 @@ pipeline {
     agent any
 
     environment {
-        SONARQUBE_ENV = 'SonarQube_Scanner'
+        SONARQUBE_ENV = 'SonarQube Server'
         SONARQUBE_KEY = 'spring-petclinic'
         AWS_SERVER_IP='54.173.82.114'
         APP_PORT='8081'
+        SONARQUBE_TOKEN='sqp_2eed0344a6ad635b3740e8f08f216f062c0f216b'
     }
 
     stages {
@@ -18,7 +19,7 @@ pipeline {
 
         stage('SonarQube Analysis') {
             steps {
-                withSonarQubeEnv(SONARQUBE_ENV) {
+                withSonarQubeEnv(installationName: SONARQUBE_ENV) {
                     sh '''
                         ./mvnw sonar:sonar \
                         -Dsonar.projectKey=$SONARQUBE_KEY \
