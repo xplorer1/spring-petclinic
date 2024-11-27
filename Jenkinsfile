@@ -17,9 +17,10 @@ pipeline {
             }
         }
 
-        stage('Compile') {
+        stage('Compile and build application') {
             steps {
-                sh 'mvn compile'
+                //clean and build the application using Maven
+                sh 'mvn clean package'
             }
         }
 
@@ -34,13 +35,6 @@ pipeline {
                         -Dsonar.java.binaries=target/classes
                     '''
                 }
-            }
-        }
-
-        stage('Build Application') {
-            steps {
-                //clean and build the application using Maven
-                sh 'mvn clean package'
             }
         }
 
