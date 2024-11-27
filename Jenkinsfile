@@ -1,14 +1,6 @@
 pipeline {
     agent any
 
-    environment {
-        SONARQUBE_ENV = 'Sonarqube Server'
-        SONARQUBE_KEY = 'spring-petclinic'
-        AWS_SERVER_IP='34.207.244.129'
-        APP_PORT='8081'
-        SONARQUBE_TOKEN='sqp_e6df09a3a21565b101b7fdc316499f97c5e163e7'
-    }
-
     stages {
         stage('Checkout') {
             steps {
@@ -26,11 +18,11 @@ pipeline {
 
         stage('SonarQube Analysis') {
             steps {
-                withSonarQubeEnv(installationName: SONARQUBE_ENV) {
+                withSonarQubeEnv(installationName: env.SONARQUBE_ENV) {
                     sh '''
                         ./mvnw sonar:sonar \
-                        -Dsonar.projectKey=$SONARQUBE_KEY \
-                        -Dsonar.host.url=http://$AWS_SERVER_IP:9000 \
+                        -Dsonar.projectKey=${SONARQUBE_KEY} \
+                        -Dsonar.host.url=http://${SERVER_IP}:9000 \
                         -Dsonar.login=$SONARQUBE_TOKEN \
                         -Dsonar.java.binaries=target/classes
                     '''
@@ -40,10 +32,13 @@ pipeline {
 
         stage('Run Application') {
             steps {
-                echo "Starting Petclinic application..."
-                sh 'java -jar target/spring-petclinic-3.3.0-SNAPSHOT.jar --server.port=$APP_PORT'
-                echo "Running application at http://$AWS_SERVER_IP:$APP_PORT"
+                echo "Starting Petclinic application in the background..."
+                sh '''
+                    nohup java -jar target/spring-petclinic-3.3.0-SNAPSHOT.jar --server.port=${APP_PORT} > petclinic.log 2>&1 &
+                '''
+                echo "Running application at http://${SERVER_IP}:${APP_PORT}"
             }
         }
+
     }
 }
