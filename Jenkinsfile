@@ -6,7 +6,7 @@ pipeline {
         SONARQUBE_KEY = 'spring-petclinic'
         AWS_SERVER_IP='34.207.244.129'
         APP_PORT='8081'
-        SONARQUBE_TOKEN='sqp_2eed0344a6ad635b3740e8f08f216f062c0f216b'
+        SONARQUBE_TOKEN='sqp_e6df09a3a21565b101b7fdc316499f97c5e163e7'
     }
 
     stages {
