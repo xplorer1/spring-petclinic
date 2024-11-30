@@ -30,15 +30,15 @@ pipeline {
             }
         }
 
-        stage('Run Application') {
+        stage('Deploy with Ansible') {
             steps {
-                echo "Starting Petclinic application in the background..."
-                sh '''
-                    nohup java -jar target/spring-petclinic-3.3.0-SNAPSHOT.jar --server.port=${APP_PORT} > petclinic.log 2>&1 &
-                '''
-                echo "Running application at http://${SERVER_IP}:${APP_PORT}"
+                echo "Running Ansible playbook to deploy to ProductionServer..."
+                sh """
+                    ansible-playbook -i ${INVENTORY_FILE} ${ANSIBLE_PLAYBOOK} \
+                    -e app_package=target/spring-petclinic-3.3.0-SNAPSHOT.jar \
+                    -e server_port=${APP_PORT}
+                """
             }
         }
-
     }
 }
