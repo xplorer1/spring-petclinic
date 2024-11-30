@@ -30,12 +30,6 @@ pipeline {
             }
         }
 
-        stage('Debug Files') {
-            steps {
-                sh 'ls -R'
-            }
-        }
-
         stage('Deploy with Ansible') {
             steps {
                 echo "Running Ansible playbook to deploy to ProductionServer..."
