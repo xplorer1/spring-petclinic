@@ -1,0 +1,17 @@
+---
+- name: Deploy Application
+  hosts: production
+  tasks:
+    - name: Copy application jar to the server
+      ansible.builtin.copy:
+        src: target/spring-petclinic-3.3.0-SNAPSHOT.jar
+        dest: /home/ubuntu/spring-petclinic-3.3.0-SNAPSHOT.jar
+        owner: ubuntu
+        group: ubuntu
+        mode: '0755'
+
+    - name: Start the application
+      ansible.builtin.shell: |
+        nohup java -jar /home/ubuntu/spring-petclinic-3.3.0-SNAPSHOT.jar --server.port={{ 8081 }} > app.log 2>&1 &
+      args:
+        executable: /bin/bash
