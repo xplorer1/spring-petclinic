@@ -1,6 +1,7 @@
 ---
 - name: Deploy Application
   hosts: production
+  become: yes  # Enable privilege escalation
   tasks:
     - name: Check if Java is installed
       ansible.builtin.command: java -version
@@ -9,7 +10,7 @@
 
     - name: Install Java if not present
       ansible.builtin.apt:
-        name: openjdk-17-jdk
+        name: openjdk-11-jre
         state: present
         update_cache: yes
       when: java_check.rc != 0
