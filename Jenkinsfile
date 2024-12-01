@@ -32,11 +32,11 @@ pipeline {
 
         stage("Execute Ansible") {
             steps {
-                ansiblePlaybook credentialsId: 'pet-clinic-key',
+                ansiblePlaybook credentialsId: "pet-clinic-key",
                     disableHostKeyChecking: true,
-                    installation: 'Petclinic Ansible',
-                    inventory: ${INVENTORY_FILE},
-                    playbook: ${PLAYBOOK_FILE}
+                    installation: "Petclinic Ansible",
+                    inventory: "${INVENTORY_FILE}",
+                    playbook: "${PLAYBOOK_FILE}"
             }    
         }    
 
