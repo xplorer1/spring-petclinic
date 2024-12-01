@@ -39,16 +39,5 @@ pipeline {
                     playbook: "${PLAYBOOK_FILE}"
             }    
         }    
-
-        // stage('Deploy with ansible') {
-        //     steps {
-        //         echo "Running Ansible playbook to deploy to ProductionServer..."
-        //         sh """
-        //             ansible-playbook -i ${INVENTORY_FILE} ${PLAYBOOK_FILE} \
-        //             -e app_package=target/spring-petclinic-3.3.0-SNAPSHOT.jar \
-        //             -e server_port=${APP_PORT} --private-key=/home/ubuntu/.ssh/dev-key-pair.pem -vvvv
-        //         """
-        //     }
-        // }
     }
 }

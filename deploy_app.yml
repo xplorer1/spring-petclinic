@@ -10,7 +10,7 @@
 
     - name: Install Java if not present
       ansible.builtin.apt:
-        name: openjdk-11-jre
+        name: openjdk-17-jre
         state: present
         update_cache: yes
       when: java_check.rc != 0
