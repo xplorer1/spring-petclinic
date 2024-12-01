@@ -2,6 +2,18 @@
 - name: Deploy Application
   hosts: production
   tasks:
+    - name: Check if Java is installed
+      ansible.builtin.command: java -version
+      ignore_errors: yes
+      register: java_check
+
+    - name: Install Java if not present
+      ansible.builtin.apt:
+        name: openjdk-17-jdk
+        state: present
+        update_cache: yes
+      when: java_check.rc != 0
+
     - name: Copy application jar to the server
       ansible.builtin.copy:
         src: target/spring-petclinic-3.3.0-SNAPSHOT.jar
